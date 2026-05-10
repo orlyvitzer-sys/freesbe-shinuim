@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>שינועים — Freesbe</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+:root{
+  --teal:#00AACC;--td:#007A99;--tl:#D6F2F9;--tll:#EEF9FD;
+  --red:#E03535;--rl:#FDEAEA;--rll:#FEF5F5;
+  --green:#1DAF6B;--gl:#D9F5E8;--gll:#EEF9F3;
+  --orange:#F07828;--ol:#FDE9D6;--oll:#FEF4ED;
+  --purple:#7C5CBF;--pl:#EDE8F8;
+  --ink:#1A1E2E;--ink2:#3D4355;--ink3:#5A6172;--ink4:#9DA3AE;
+  --bg:#F4F5F7;--bg2:#ECEDF0;--border:#DDE0E6;--white:#fff;
+  --r:14px;--rsm:9px;--rxs:6px;
+  --sh:0 1px 3px rgba(0,0,0,.08),0 1px 8px rgba(0,0,0,.05);
+  --shm:0 4px 16px rgba(0,0,0,.11),0 1px 4px rgba(0,0,0,.07);
+  --shl:0 8px 32px rgba(0,0,0,.15),0 2px 8px rgba(0,0,0,.08);
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{height:100%;height:-webkit-fill-available}
+body{
+  font-family:'Heebo',sans-serif;background:var(--bg);color:var(--ink);
+  direction:rtl;font-size:14px;line-height:1.5;
+  height:100vh;height:-webkit-fill-available;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+
+/* HEADER */
+.hdr{background:var(--ink);flex-shrink:0;z-index:200;padding-top:var(--safe-t)}
+.hdr-top{display:flex;align-items:center;justify-content:space-between;padding:11px 16px}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-mark{
+  width:36px;height:36px;border-radius:10px;
+  background:linear-gradient(135deg,var(--teal),var(--td));
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:900;color:#fff;
+  box-shadow:0 2px 8px rgba(0,170,204,.4);flex-shrink:0;
+}
+.logo-txt{font-size:17px;font-weight:900;color:#fff}
+.logo-sub{font-size:10px;color:var(--ink4);font-weight:400;letter-spacing:.5px}
+.hdr-right{text-align:left;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.hdr-date{font-size:11px;color:var(--ink4)}
+.hdr-counts{font-size:11px;color:var(--teal);font-weight:700}
+.sync-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--ink4);display:inline-block;margin-left:4px;
+  transition:background .3s;
+}
+.sync-dot.live{background:var(--green);box-shadow:0 0 0 2px rgba(29,175,107,.25)}
+.sync-dot.err{background:var(--red)}
+
+.nav{display:flex;border-top:1px solid rgba(255,255,255,.07);overflow-x:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.ntab{
+  flex:1;min-width:60px;padding:10px 6px 9px;
+  font-family:'Heebo',sans-serif;font-size:12px;font-weight:600;
+  color:var(--ink4);background:none;border:none;cursor:pointer;
+  border-bottom:2.5px solid transparent;transition:.15s;white-space:nowrap;
+}
+.ntab.active{color:var(--teal);border-bottom-color:var(--teal)}
+
+/* BODY */
+.body{flex:1;overflow:hidden;position:relative}
+.view{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
+.view.active{display:flex}
+
+/* MAP */
+#v-map{position:absolute;inset:0}
+#map{position:absolute;inset:0;width:100%!important;height:100%!important;z-index:1}
+.leaflet-container{width:100%!important;height:100%!important;font-family:'Heebo',sans-serif!important}
+.map-ov{position:absolute;z-index:400;pointer-events:none}
+.map-ov *{pointer-events:auto}
+.map-statsbar{
+  top:0;left:0;right:0;
+  background:rgba(26,30,46,.84);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  display:flex;justify-content:center;gap:0;border-bottom:1px solid rgba(255,255,255,.08);
+}
+.mstat{display:flex;align-items:center;gap:6px;padding:8px 14px;font-size:12px;font-weight:600;color:#fff;border-left:1px solid rgba(255,255,255,.08)}
+.mstat:first-child{border-left:none}
+.ms-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.map-legend{
+  bottom:16px;right:12px;
+  background:rgba(255,255,255,.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border-radius:var(--rsm);padding:10px 12px;box-shadow:var(--shm);font-size:11px;min-width:130px;
+}
+.ml-title{font-size:10px;font-weight:800;color:var(--ink3);letter-spacing:.6px;text-transform:uppercase;margin-bottom:6px}
+.ml-row{display:flex;align-items:center;gap:7px;padding:2px 0;color:var(--ink2);font-weight:500}
+.ml-dot{width:10px;height:10px;border-radius:50%;border:2px solid rgba(255,255,255,.7);flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.map-fab{
+  bottom:16px;left:12px;
+  background:var(--teal);color:#fff;border:none;border-radius:25px;
+  padding:11px 18px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;box-shadow:var(--shl);display:flex;align-items:center;gap:6px;transition:.15s;
+}
+.map-fab:active{transform:scale(.96)}
+.leaflet-popup-content{font-family:'Heebo',sans-serif!important;direction:rtl;text-align:right;margin:12px 14px!important;min-width:200px}
+.leaflet-popup-content-wrapper{border-radius:12px!important;box-shadow:var(--shl)!important}
+.leaflet-popup-tip-container{display:none}
+
+/* SCROLL VIEWS */
+.sv{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.pad{padding:12px 14px}
+
+/* TOOLBAR */
+.toolbar{background:var(--white);border-bottom:1px solid var(--border);padding:10px 14px;flex-shrink:0;display:flex;flex-direction:column;gap:8px}
+.search-inp{
+  width:100%;font-family:'Heebo',sans-serif;font-size:13px;
+  padding:8px 12px;border:1.5px solid var(--border);border-radius:20px;
+  background:var(--bg);color:var(--ink);outline:none;direction:rtl;
+}
+.search-inp:focus{border-color:var(--teal);background:var(--white)}
+.chips{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:1px}
+.chips::-webkit-scrollbar{display:none}
+.chip{
+  font-family:'Heebo',sans-serif;font-size:11px;font-weight:700;
+  padding:5px 11px;border-radius:20px;border:1.5px solid var(--border);
+  background:var(--white);color:var(--ink3);cursor:pointer;transition:.15s;white-space:nowrap;flex-shrink:0;
+}
+.chip.active{border-color:var(--teal);background:var(--tll);color:var(--td)}
+.chip.cw.active{border-color:var(--orange);background:var(--oll);color:var(--orange)}
+.chip.cg.active{border-color:var(--teal);background:var(--tll);color:var(--td)}
+.chip.cd.active{border-color:var(--green);background:var(--gll);color:var(--green)}
+
+/* REQUEST CARDS */
+.req-list{display:flex;flex-direction:column;gap:8px}
+.rcard{background:var(--white);border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--sh);overflow:hidden;transition:box-shadow .15s}
+.rcard-head{display:flex;align-items:center;gap:10px;padding:11px 13px;cursor:pointer}
+.plate{
+  font-size:13px;font-weight:900;background:var(--bg);border:1.5px solid var(--border);
+  border-radius:var(--rxs);padding:4px 9px;direction:ltr;flex-shrink:0;letter-spacing:.3px;color:var(--ink);
+}
+.rmeta{flex:1;min-width:0}
+.rroute{font-size:13px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rarrow{color:var(--ink4);font-size:11px;margin:0 3px}
+.rmgr{font-size:11px;color:var(--ink4);margin-top:1px}
+.rstatus{display:flex;align-items:center;gap:4px;padding:4px 9px;border-radius:20px;font-size:11px;font-weight:700;flex-shrink:0}
+.sw{background:var(--ol);color:var(--orange)}
+.sg{background:var(--tl);color:var(--td)}
+.sd{background:var(--gl);color:var(--green)}
+.sdot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.sdw{background:var(--orange)}.sdg{background:var(--teal)}.sdd{background:var(--green)}
+.chev{color:var(--ink4);font-size:10px;transition:transform .2s;flex-shrink:0}
+.chev.open{transform:rotate(180deg)}
+.rcard-body{display:none;border-top:1px solid var(--border);padding:12px 13px}
+.rcard-body.open{display:block}
+.det-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.det{background:var(--bg);border-radius:var(--rxs);padding:8px 10px}
+.det-lbl{font-size:10px;font-weight:700;color:var(--ink4);letter-spacing:.3px;text-transform:uppercase;margin-bottom:2px}
+.det-val{font-size:13px;font-weight:700;color:var(--ink)}
+.det-sub{font-size:10px;color:var(--ink4);margin-top:1px}
+.ph{color:var(--teal);text-decoration:none;direction:ltr;display:inline-block}
+.act-row{display:flex;gap:6px}
+.abtn{flex:1;font-family:'Heebo',sans-serif;font-size:12px;font-weight:700;padding:8px 6px;border-radius:var(--rxs);border:1.5px solid;cursor:pointer;transition:.15s}
+.abw{background:var(--ol);border-color:var(--orange);color:var(--orange)}
+.abg{background:var(--tl);border-color:var(--teal);color:var(--td)}
+.abd{background:var(--gl);border-color:var(--green);color:var(--green)}
+.abtn.cur{opacity:.35;cursor:default;pointer-events:none}
+.abdel{flex:0;padding:8px 12px;background:var(--rll);border-color:var(--rl);color:var(--red)}
+
+/* MATCHES */
+.sum-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.scrd{background:var(--white);border-radius:var(--rsm);padding:10px 8px;text-align:center;border:1px solid var(--border);box-shadow:var(--sh)}
+.sn{font-size:24px;font-weight:900;line-height:1}
+.sl{font-size:10px;color:var(--ink4);margin-top:3px;line-height:1.3;font-weight:600}
+.sng{color:var(--green)}.sno{color:var(--orange)}.snr{color:var(--red)}.snp{color:var(--purple)}
+.sec-hdr{font-size:10px;font-weight:800;color:var(--ink4);letter-spacing:.7px;text-transform:uppercase;margin:14px 0 8px;display:flex;align-items:center;gap:8px}
+.sec-hdr::after{content:'';flex:1;height:1px;background:var(--border)}
+.mxcard{background:var(--white);border-radius:var(--r);border:1px solid var(--border);margin-bottom:10px;overflow:hidden;box-shadow:var(--sh)}
+.mxcard.full{border-color:rgba(29,175,107,.4);border-width:1.5px}
+.mxcard.partial{border-color:rgba(240,120,40,.35);border-width:1.5px}
+.mxcard.nearby{border-color:rgba(124,92,191,.35);border-width:1.5px}
+.mxhead{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;background:var(--bg);border-bottom:1px solid var(--border)}
+.mxtitle{font-size:13px;font-weight:700}
+.mxbadge{font-size:10px;padding:3px 9px;border-radius:20px;font-weight:700}
+.mbf{background:var(--gl);color:var(--green)}.mbp{background:var(--ol);color:var(--orange)}.mbn{background:var(--pl);color:var(--purple)}
+.mxleg{display:flex;align-items:flex-start;gap:9px;padding:9px 13px;border-bottom:1px solid var(--border);font-size:12px}
+.mxleg:last-child{border-bottom:none}
+.mxico{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}
+.mig{background:var(--tl);color:var(--td)}.mib{background:var(--gl);color:var(--green)}.min{background:var(--pl);color:var(--purple)}
+.mxbody{flex:1;min-width:0}
+.mxroute{font-weight:700;color:var(--ink)}
+.mxplate{display:inline-block;font-size:10px;font-weight:800;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;direction:ltr;margin:2px 0}
+.mxmgr{font-size:11px;color:var(--ink4);margin-top:1px}
+.mxph{color:var(--teal);text-decoration:none;direction:ltr;display:inline-block;font-size:11px}
+.noret{padding:8px 13px;font-size:11px;color:var(--ink4);font-style:italic;border-bottom:1px solid var(--border)}
+.noret:last-child{border:none}
+.um-card{background:var(--white);border:1.5px solid rgba(224,53,53,.25);border-radius:var(--rsm);padding:10px 13px;margin-bottom:6px;display:flex;align-items:center;gap:10px;box-shadow:var(--sh)}
+.um-info{flex:1;min-width:0}
+.um-br{font-size:13px;font-weight:700}
+.um-sub{font-size:11px;color:var(--ink4);margin-top:1px}
+.um-plate{font-size:11px;font-weight:800;background:var(--rll);border:1px solid rgba(224,53,53,.2);border-radius:4px;padding:3px 8px;direction:ltr;color:var(--red);flex-shrink:0}
+
+/* ADD FORM */
+.add-form{background:var(--white);border-radius:var(--r);border:1.5px solid var(--teal);box-shadow:0 0 0 4px rgba(0,170,204,.07);padding:14px;margin-bottom:14px}
+.form-title{font-size:13px;font-weight:800;color:var(--teal);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ffull{grid-column:1/-1}
+.flbl{font-size:10px;font-weight:800;color:var(--ink3);letter-spacing:.3px;text-transform:uppercase;display:block;margin-bottom:4px}
+.finp,.fsel{width:100%;font-family:'Heebo',sans-serif;font-size:13px;padding:9px 11px;border:1.5px solid var(--border);border-radius:var(--rsm);background:var(--bg);color:var(--ink);outline:none;direction:rtl;transition:.15s}
+.finp:focus,.fsel:focus{border-color:var(--teal);background:var(--white)}
+.plate-inp{direction:ltr;font-weight:800;font-size:14px;letter-spacing:.5px}
+.submit-btn{width:100%;font-family:'Heebo',sans-serif;font-size:14px;font-weight:800;padding:11px;background:linear-gradient(135deg,var(--teal),var(--td));color:#fff;border:none;border-radius:var(--rsm);cursor:pointer;margin-top:10px;box-shadow:0 2px 8px rgba(0,170,204,.3);transition:.15s}
+.submit-btn:active{transform:scale(.98)}
+
+/* BRANCH PICKER */
+.branch-picker{flex-shrink:0;background:var(--white);border-bottom:1px solid var(--border);padding:10px 14px}
+.picker-lbl{font-size:10px;font-weight:800;color:var(--ink4);letter-spacing:.4px;text-transform:uppercase;margin-bottom:5px}
+.picker-sel{width:100%;font-family:'Heebo',sans-serif;font-size:14px;font-weight:700;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--rsm);background:var(--bg);color:var(--ink);outline:none;direction:rtl}
+.picker-sel:focus{border-color:var(--teal)}
+
+/* WA */
+.wa-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:#25D366;color:#fff;border:none;border-radius:var(--rsm);padding:12px;font-family:'Heebo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-top:14px;text-decoration:none}
+
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;display:none;align-items:flex-end;padding-bottom:var(--safe-b)}
+.modal-bg.open{display:flex}
+.modal{background:var(--white);border-radius:var(--r) var(--r) 0 0;width:100%;padding:20px 16px 28px;max-height:92vh;overflow-y:auto;box-shadow:var(--shl)}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.modal-title{font-size:16px;font-weight:900}
+.modal-close{background:none;border:none;font-size:24px;cursor:pointer;color:var(--ink4);line-height:1}
+
+/* LOADING */
+.loading-screen{
+  position:fixed;inset:0;background:var(--ink);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:900;transition:opacity .4s;
+}
+.loading-screen.hide{opacity:0;pointer-events:none}
+.loading-logo{font-size:48px;font-weight:900;color:var(--teal);letter-spacing:-2px;margin-bottom:8px}
+.loading-sub{font-size:14px;color:var(--ink4);margin-bottom:32px}
+.loading-spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,.1);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:rgba(26,30,46,.95);color:#fff;font-family:'Heebo',sans-serif;font-size:13px;font-weight:600;padding:10px 20px;border-radius:20px;opacity:0;transition:.22s;z-index:700;white-space:nowrap;pointer-events:none;backdrop-filter:blur(8px)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* EMPTY */
+.empty{text-align:center;padding:3rem 1.5rem;color:var(--ink4)}
+.empty-ico{font-size:38px;margin-bottom:8px}
+.empty-txt{font-size:14px;line-height:1.6}
+
+@media(max-width:360px){
+  .fgrid{grid-template-columns:1fr}.ffull{grid-column:1}
+  .det-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-screen" id="loading">
+  <div class="loading-logo">F</div>
+  <div class="loading-sub">מערכת שינועים Freesbe</div>
+  <div class="loading-spinner"></div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">בקשת שינוע חדשה</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="fgrid">
+      <div class="ffull">
+        <label class="flbl">מספר רישוי</label>
+        <input class="finp plate-inp" id="m-plate" type="text" placeholder="12-345-67" maxlength="10">
+      </div>
+      <div>
+        <label class="flbl">סניף מקור — מבקש לשנע</label>
+        <select class="fsel" id="m-from"></select>
+      </div>
+      <div>
+        <label class="flbl">סניף יעד</label>
+        <select class="fsel" id="m-to"></select>
+      </div>
+      <div class="ffull">
+        <label class="flbl">הערה</label>
+        <input class="finp" id="m-note" type="text" placeholder="דחיפות, סיבה...">
+      </div>
+    </div>
+    <button class="submit-btn" onclick="submitModal()">הוסף בקשת שינוע</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-top">
+    <div class="logo">
+      <div class="logo-mark">F</div>
+      <div>
+        <div class="logo-txt">Freesbe</div>
+        <div class="logo-sub">מערכת שינועים</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="hdr-date" id="hdr-date"></div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <span class="sync-dot" id="sync-dot"></span>
+        <span class="hdr-counts" id="hdr-counts" style="font-size:11px;color:var(--ink4)">מתחבר...</span>
+      </div>
+    </div>
+  </div>
+  <div class="nav">
+    <button class="ntab active" onclick="showView('v-map',this)">🗺 מפה</button>
+    <button class="ntab" onclick="showView('v-req',this)">📋 בקשות</button>
+    <button class="ntab" onclick="showView('v-match',this);renderMatches()">🔄 הצלבות</button>
+    <button class="ntab" onclick="showView('v-branch',this)">🏢 סניף שלי</button>
+  </div>
+</div>
+
+<div class="body">
+
+  <!-- MAP -->
+  <div class="view active" id="v-map">
+    <div id="map"></div>
+    <div class="map-ov map-statsbar" id="map-statsbar"></div>
+    <div class="map-ov map-legend">
+      <div class="ml-title">מקרא</div>
+      <div class="ml-row"><div class="ml-dot" style="background:#737986"></div>ללא בקשות</div>
+      <div class="ml-row"><div class="ml-dot" style="background:var(--orange)"></div>ממתין</div>
+      <div class="ml-row"><div class="ml-dot" style="background:var(--teal)"></div>בדרך</div>
+      <div class="ml-row"><div class="ml-dot" style="background:var(--green)"></div>בוצע</div>
+    </div>
+    <button class="map-ov map-fab" onclick="openModal()">+ שינוע</button>
+  </div>
+
+  <!-- REQUESTS -->
+  <div class="view" id="v-req">
+    <div class="toolbar">
+      <input class="search-inp" type="text" placeholder="חיפוש רישוי, סניף..." id="req-search" oninput="renderRequests()">
+      <div class="chips">
+        <div class="chip active" data-f="all" onclick="setFilter(this)">הכל</div>
+        <div class="chip cw" data-f="wait" onclick="setFilter(this)">⏳ ממתין</div>
+        <div class="chip cg" data-f="go" onclick="setFilter(this)">🚗 בדרך</div>
+        <div class="chip cd" data-f="done" onclick="setFilter(this)">✅ בוצע</div>
+      </div>
+    </div>
+    <div class="sv pad"><div class="req-list" id="req-list"></div></div>
+  </div>
+
+  <!-- MATCHES -->
+  <div class="view" id="v-match">
+    <div class="sv pad" id="match-content">
+      <div class="empty"><div class="empty-ico">🔄</div><div class="empty-txt">טוען נתונים...</div></div>
+    </div>
+  </div>
+
+  <!-- BRANCH -->
+  <div class="view" id="v-branch">
+    <div class="branch-picker">
+      <div class="picker-lbl">הסניף שלי</div>
+      <select class="picker-sel" id="branch-sel" onchange="renderBranchView()"></select>
+    </div>
+    <div class="sv pad" id="branch-content"></div>
+  </div>
+
+</div>
+
+<script>
+// ══════════════════════════════
+// FIREBASE CONFIG
+// ══════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyDKUzLEhRXOi5U9EdlZE8RMqSyhOvLotco",
+  authDomain: "freesbe-shinua.firebaseapp.com",
+  databaseURL: "https://freesbe-shinua-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "freesbe-shinua",
+  storageBucket: "freesbe-shinua.firebasestorage.app",
+  messagingSenderId: "797520457570",
+  appId: "1:797520457570:web:e11b8aed0d6e79ecf4063b"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const reqsRef = db.ref('requests');
+
+// ══════════════════════════════
+// BRANCHES
+// ══════════════════════════════
+const BRANCHES=[
+  {id:1, name:'חיפה הבונים',    mgr:'יותם חדד',      ph:'050-8880376',lat:32.820,lng:35.000},
+  {id:2, name:'טבריה',          mgr:'לירן כהן',       ph:'054-7274663',lat:32.794,lng:35.530},
+  {id:3, name:'כרמיאל',         mgr:'אבירן עבדו',     ph:'052-8865569',lat:32.914,lng:35.297},
+  {id:4, name:'עפולה',          mgr:'רחמים כדורי',    ph:'050-3206206',lat:32.607,lng:35.289},
+  {id:5, name:'סנטר חיפה',      mgr:'דני ברקובץ',     ph:'054-7275932',lat:32.794,lng:34.984},
+  {id:6, name:'צומת כח',        mgr:'אבינועם ממן',    ph:'050-7969001',lat:32.699,lng:35.183},
+  {id:7, name:'נהריה',          mgr:'אייל אבו',       ph:'052-3575436',lat:33.003,lng:35.098},
+  {id:8, name:'חדרה',           mgr:'ישראל בן שושן',  ph:'052-8907492',lat:32.434,lng:34.919},
+  {id:9, name:'גלילות',         mgr:'דוד מוטחדה',     ph:'054-2331444',lat:32.115,lng:34.854},
+  {id:10,name:'כ"ס',            mgr:'שמעון אלבז',     ph:'053-5512412',lat:32.175,lng:34.907},
+  {id:11,name:'כוכב יאיר',      mgr:'מוחמד מצארווה',  ph:'050-5769729',lat:32.187,lng:35.002},
+  {id:12,name:'נתניה',          mgr:'רם מכלוף',       ph:'050-4346607',lat:32.329,lng:34.857},
+  {id:13,name:'פתח תקווה',      mgr:'נדב ידגר',       ph:'054-8822801',lat:32.089,lng:34.888},
+  {id:14,name:'שורק',           mgr:'אורן אילוז',     ph:'050-3381415',lat:31.951,lng:34.883},
+  {id:15,name:'יהוד',           mgr:'יוסי אשכנזי',   ph:'052-8090096',lat:32.031,lng:34.889},
+  {id:16,name:'אילת',           mgr:'אמיר טורדאי',    ph:'053-3480841',lat:29.558,lng:34.952},
+  {id:17,name:'באר שבע מכתשים', mgr:'ערן חדד',        ph:'053-4689373',lat:31.252,lng:34.791},
+  {id:18,name:'ביל"ו',          mgr:'סיימון מלכה',    ph:'052-3120467',lat:31.867,lng:34.836},
+  {id:19,name:'חולון',          mgr:'אלעד נחמיה',     ph:'052-3040145',lat:32.011,lng:34.773},
+  {id:20,name:'נתיבות',         mgr:'אופיר גל',       ph:'052-7756536',lat:31.421,lng:34.589},
+  {id:21,name:'אופקים',         mgr:'שון וקנין',      ph:'052-7922310',lat:31.312,lng:34.626},
+  {id:22,name:'מרכז הרכב',      mgr:'שי טיאר',        ph:'054-4294916',lat:32.054,lng:34.760},
+  {id:23,name:'קריית גת',       mgr:'דקל עזרא',       ph:'054-6741321',lat:31.610,lng:34.771},
+  {id:24,name:'תל אביב',        mgr:'יוסי פרימו',     ph:'050-5885517',lat:32.065,lng:34.778},
+  {id:25,name:'אשדוד',          mgr:'אריאל שוורצמן',  ph:'052-4842133',lat:31.804,lng:34.655},
+  {id:26,name:'ירושלים האומן',  mgr:'יהודה רבי',      ph:'054-7004847',lat:31.791,lng:35.215},
+  {id:27,name:'ירושלים הפרסה',  mgr:'רועי מילר',      ph:'052-6862835',lat:31.779,lng:35.228},
+  {id:28,name:'פלטין',          mgr:'יוני פרוזנפר',   ph:'054-7004720',lat:32.268,lng:35.013},
+  {id:29,name:'ראשל"צ האצ"ל',  mgr:'רוני בראון',     ph:'050-5225251',lat:31.973,lng:34.800},
+  {id:30,name:'אשקלון',         mgr:'ספאחי רז',       ph:'050-2327687',lat:31.669,lng:34.572},
+];
+const BMAP={};BRANCHES.forEach(b=>BMAP[b.id]=b);
+
+const STATUS={
+  wait:{lbl:'ממתין',cls:'sw',dc:'sdw',color:'#F07828'},
+  go:  {lbl:'בדרך', cls:'sg',dc:'sdg',color:'#00AACC'},
+  done:{lbl:'בוצע', cls:'sd',dc:'sdd',color:'#1DAF6B'},
+};
+const DETOUR_KM=30;
+
+// ══════════════════════════════
+// STATE
+// ══════════════════════════════
+let reqs=[];
+let reqF='all';
+let mapObj,markers={},routeLines=[];
+let openCards=new Set();
+
+// ══════════════════════════════
+// GEO
+// ══════════════════════════════
+function haversine(a,b,c,d){
+  const R=6371,dL=(c-a)*Math.PI/180,dl=(d-b)*Math.PI/180;
+  const x=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dl/2)**2;
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+function ptSegDist(pLat,pLng,aLat,aLng,bLat,bLng){
+  const sc=Math.cos((aLat+bLat)/2*Math.PI/180)*111.32;
+  const ax=(aLng-pLng)*sc,ay=(aLat-pLat)*111.32;
+  const bx=(bLng-pLng)*sc,by=(bLat-pLat)*111.32;
+  const l2=(bx-ax)**2+(by-ay)**2;
+  if(l2===0)return haversine(pLat,pLng,aLat,aLng);
+  const t=Math.max(0,Math.min(1,((0-ax)*(bx-ax)+(0-ay)*(by-ay))/l2));
+  return Math.sqrt((ax+t*(bx-ax))**2+(ay+t*(by-ay))**2);
+}
+
+// ══════════════════════════════
+// INIT
+// ══════════════════════════════
+function init(){
+  document.getElementById('hdr-date').textContent=
+    new Date().toLocaleDateString('he-IL',{weekday:'short',day:'numeric',month:'long'});
+  populateSelects();
+  populateBranchPicker();
+  initMap();
+  connectFirebase();
+}
+
+function populateSelects(){
+  const o=BRANCHES.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
+  document.getElementById('m-from').innerHTML=o;
+  document.getElementById('m-to').innerHTML=o;
+  if(BRANCHES.length>1)document.getElementById('m-to').selectedIndex=1;
+}
+function populateBranchPicker(){
+  document.getElementById('branch-sel').innerHTML=
+    BRANCHES.map(b=>`<option value="${b.id}">${b.name} — ${b.mgr}</option>`).join('');
+}
+
+// ══════════════════════════════
+// FIREBASE
+// ══════════════════════════════
+function connectFirebase(){
+  const dot=document.getElementById('sync-dot');
+  const cnt=document.getElementById('hdr-counts');
+
+  reqsRef.on('value', snap=>{
+    const data=snap.val()||{};
+    reqs=Object.entries(data).map(([k,v])=>({...v,firebaseKey:k}))
+      .sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+
+    dot.className='sync-dot live';
+    const w=reqs.filter(r=>r.status==='wait').length;
+    const g=reqs.filter(r=>r.status==='go').length;
+    cnt.textContent=w||g?`${w} ממתינים · ${g} בדרך`:'מחובר ✓';
+    cnt.style.color=w||g?'var(--teal)':'var(--green)';
+
+    // Hide loading on first load
+    document.getElementById('loading').classList.add('hide');
+
+    refreshMarkers();
+    renderRequests();
+    if(document.getElementById('v-match').classList.contains('active')) renderMatches();
+    if(document.getElementById('v-branch').classList.contains('active')) renderBranchView();
+  }, err=>{
+    console.error(err);
+    dot.className='sync-dot err';
+    cnt.textContent='שגיאת חיבור';
+    cnt.style.color='var(--red)';
+    document.getElementById('loading').classList.add('hide');
+  });
+}
+
+function fbAdd(req){
+  return reqsRef.push(req);
+}
+function fbUpdate(key,data){
+  return reqsRef.child(key).update(data);
+}
+function fbDelete(key){
+  return reqsRef.child(key).remove();
+}
+
+// ══════════════════════════════
+// MAP
+// ══════════════════════════════
+function initMap(){
+  mapObj=L.map('map',{center:[31.8,34.9],zoom:7,zoomControl:false,attributionControl:false,preferCanvas:true});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(mapObj);
+  L.control.zoom({position:'bottomleft'}).addTo(mapObj);
+  BRANCHES.forEach(b=>{markers[b.id]=createMarker(b);});
+  renderMapStats();
+}
+
+function markerColor(id){
+  const br=reqs.filter(r=>(r.fromId===id||r.toId===id)&&r.status!=='done');
+  if(!br.length)return'#737986';
+  if(br.some(r=>r.status==='wait'))return'#F07828';
+  if(br.some(r=>r.status==='go'))return'#00AACC';
+  return'#1DAF6B';
+}
+
+function createMarker(b){
+  const color=markerColor(b.id);
+  const cnt=reqs.filter(r=>(r.fromId===b.id||r.toId===b.id)&&r.status!=='done').length;
+  const sz=cnt>0?36:26;
+  const icon=L.divIcon({
+    className:'',iconSize:[sz,sz],iconAnchor:[sz/2,sz/2],
+    html:`<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${color};
+      border:2.5px solid rgba(255,255,255,.9);
+      box-shadow:0 2px 8px rgba(0,0,0,.28),0 0 0 ${cnt>0?3:0}px ${color}44;
+      display:flex;align-items:center;justify-content:center;
+      color:#fff;font-family:Heebo,sans-serif;font-size:${cnt>0?'13px':'10px'};
+      font-weight:900;cursor:pointer;">${cnt>0?cnt:'F'}</div>`
+  });
+  const m=L.marker([b.lat,b.lng],{icon}).addTo(mapObj);
+  m.bindPopup(popupHTML(b),{maxWidth:250,autoPan:true,closeButton:true});
+  return m;
+}
+
+function popupHTML(b){
+  const br=reqs.filter(r=>(r.fromId===b.id||r.toId===b.id)&&r.status!=='done');
+  const rows=br.length
+    ?br.map(r=>{
+        const s=STATUS[r.status];
+        const other=BMAP[r.fromId===b.id?r.toId:r.fromId];
+        const dir=r.fromId===b.id?'→':'←';
+        return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-top:1px solid #f0f1f3;font-size:12px">
+          <span style="font-weight:800;direction:ltr;background:#f4f5f7;border:1px solid #dde0e6;border-radius:4px;padding:1px 5px;font-size:10px">${r.plate}</span>
+          <span style="flex:1;color:#5a6172">${dir} ${other?.name||'?'}</span>
+          <span style="font-size:10px;font-weight:700;color:${s.color}">${s.lbl}</span>
+        </div>`;
+      }).join('')
+    :'<div style="color:#9da3ae;font-size:12px;padding:4px 0">אין שינועים פעילים</div>';
+  return `<div style="font-family:Heebo,sans-serif;direction:rtl;min-width:200px">
+    <div style="font-weight:900;font-size:15px;margin-bottom:2px">${b.name}</div>
+    <div style="font-size:12px;color:#5a6172;margin-bottom:8px">${b.mgr} · <a href="tel:${b.ph}" style="color:#00AACC;direction:ltr;display:inline-block">${b.ph}</a></div>
+    ${rows}
+    <button onclick="openModalFrom(${b.id})" style="width:100%;margin-top:10px;padding:8px;background:#00AACC;color:#fff;border:none;border-radius:8px;font-family:Heebo,sans-serif;font-size:13px;font-weight:700;cursor:pointer">+ בקשת שינוע</button>
+  </div>`;
+}
+
+function refreshMarkers(){
+  Object.values(markers).forEach(m=>mapObj.removeLayer(m));
+  markers={};
+  routeLines.forEach(l=>mapObj.removeLayer(l));
+  routeLines=[];
+  BRANCHES.forEach(b=>{markers[b.id]=createMarker(b);});
+  reqs.filter(r=>r.status==='go').forEach(r=>{
+    const f=BMAP[r.fromId],t=BMAP[r.toId];
+    if(!f||!t)return;
+    const l=L.polyline([[f.lat,f.lng],[t.lat,t.lng]],{color:'#00AACC',weight:3,opacity:.65,dashArray:'7 5'}).addTo(mapObj);
+    routeLines.push(l);
+  });
+  renderMapStats();
+}
+
+function renderMapStats(){
+  const w=reqs.filter(r=>r.status==='wait').length;
+  const g=reqs.filter(r=>r.status==='go').length;
+  const d=reqs.filter(r=>r.status==='done').length;
+  document.getElementById('map-statsbar').innerHTML=
+    `<div class="mstat"><div class="ms-dot" style="background:#F07828"></div>${w} ממתינים</div>
+     <div class="mstat"><div class="ms-dot" style="background:#00AACC"></div>${g} בדרך</div>
+     <div class="mstat"><div class="ms-dot" style="background:#1DAF6B"></div>${d} בוצעו</div>`;
+}
+
+// ══════════════════════════════
+// MODAL
+// ══════════════════════════════
+function openModal(fromId){
+  if(fromId)document.getElementById('m-from').value=fromId;
+  document.getElementById('modal-bg').classList.add('open');
+  setTimeout(()=>document.getElementById('m-plate').focus(),200);
+}
+function openModalFrom(id){openModal(id);}
+function closeModal(){document.getElementById('modal-bg').classList.remove('open');}
+
+async function submitModal(){
+  const plate=document.getElementById('m-plate').value.trim().toUpperCase();
+  const fromId=parseInt(document.getElementById('m-from').value);
+  const toId=parseInt(document.getElementById('m-to').value);
+  const note=document.getElementById('m-note').value.trim();
+  if(!plate){showToast('נא להזין מספר רישוי');return;}
+  if(fromId===toId){showToast('סניף מקור ויעד זהים');return;}
+  const f=BMAP[fromId],t=BMAP[toId];
+  const dist=Math.round(haversine(f.lat,f.lng,t.lat,t.lng));
+  await fbAdd({plate,fromId,toId,note,status:'wait',distKm:dist,createdAt:new Date().toISOString()});
+  document.getElementById('m-plate').value='';
+  document.getElementById('m-note').value='';
+  closeModal();
+  showToast(`✓ בקשה נוספה — ${dist} ק"מ`);
+}
+
+// ══════════════════════════════
+// REQUESTS
+// ══════════════════════════════
+function setFilter(el){
+  reqF=el.dataset.f;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  renderRequests();
+}
+
+function renderRequests(){
+  const s=(document.getElementById('req-search').value||'').toLowerCase();
+  let list=reqs.filter(r=>{
+    if(reqF!=='all'&&r.status!==reqF)return false;
+    const f=BMAP[r.fromId],t=BMAP[r.toId];
+    if(s&&!r.plate.toLowerCase().includes(s)&&!f?.name.includes(s)&&!t?.name.includes(s))return false;
+    return true;
+  });
+  const el=document.getElementById('req-list');
+  if(!list.length){
+    el.innerHTML=`<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">אין בקשות${reqF!=='all'?' בסטטוס זה':''}</div></div>`;
+    return;
+  }
+  el.innerHTML=list.map(r=>reqCardHTML(r)).join('');
+}
+
+function reqCardHTML(r){
+  const f=BMAP[r.fromId]||{name:'?',mgr:'',ph:''};
+  const t=BMAP[r.toId]||{name:'?',mgr:'',ph:''};
+  const s=STATUS[r.status];
+  const d=new Date(r.createdAt);
+  const ds=d.toLocaleDateString('he-IL',{day:'numeric',month:'numeric'})+' '+d.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+  const dist=r.distKm||Math.round(haversine(f.lat,f.lng,t.lat,t.lng));
+  const key=r.firebaseKey;
+  return `<div class="rcard">
+    <div class="rcard-head" onclick="toggleCard('${key}')">
+      <div class="plate">${r.plate}</div>
+      <div class="rmeta">
+        <div class="rroute">${f.name}<span class="rarrow"> ← </span>${t.name}</div>
+        <div class="rmgr">${f.mgr} · ${dist} ק"מ</div>
+      </div>
+      <div class="rstatus ${s.cls}"><div class="sdot ${s.dc}"></div>${s.lbl}</div>
+      <div class="chev" id="ch-${key}">▼</div>
+    </div>
+    <div class="rcard-body" id="bd-${key}">
+      <div class="det-grid">
+        <div class="det">
+          <div class="det-lbl">מקור — מבקש לשנע</div>
+          <div class="det-val">${f.name}</div>
+          <div class="det-sub">${f.mgr}<br><a class="ph" href="tel:${f.ph}">${f.ph}</a></div>
+        </div>
+        <div class="det">
+          <div class="det-lbl">יעד</div>
+          <div class="det-val">${t.name}</div>
+          <div class="det-sub">${t.mgr}<br><a class="ph" href="tel:${t.ph}">${t.ph}</a></div>
+        </div>
+        <div class="det">
+          <div class="det-lbl">מרחק</div>
+          <div class="det-val">${dist} ק"מ</div>
+          <div class="det-sub">${ds}</div>
+        </div>
+        ${r.note?`<div class="det"><div class="det-lbl">הערה</div><div class="det-val">${r.note}</div></div>`:''}
+      </div>
+      <div class="act-row">
+        <button class="abtn abw${r.status==='wait'?' cur':''}" onclick="setStatus('${key}','wait')">⏳ ממתין</button>
+        <button class="abtn abg${r.status==='go'?' cur':''}" onclick="setStatus('${key}','go')">🚗 בדרך</button>
+        <button class="abtn abd${r.status==='done'?' cur':''}" onclick="setStatus('${key}','done')">✅ בוצע</button>
+        <button class="abtn abdel" onclick="delReq('${key}')">🗑</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleCard(key){
+  if(openCards.has(key))openCards.delete(key);else openCards.add(key);
+  const bd=document.getElementById('bd-'+key);
+  const ch=document.getElementById('ch-'+key);
+  if(bd)bd.classList.toggle('open',openCards.has(key));
+  if(ch)ch.classList.toggle('open',openCards.has(key));
+}
+
+async function setStatus(key,status){
+  await fbUpdate(key,{status});
+  showToast('סטטוס: '+STATUS[status].lbl);
+}
+async function delReq(key){
+  if(!confirm('למחוק בקשה זו?'))return;
+  await fbDelete(key);
+  showToast('נמחק');
+}
+
+// ══════════════════════════════════════════
+// GEO-SMART MATCHING
+// ══════════════════════════════════════════
+function computeMatches(){
+  const waiting=reqs.filter(r=>r.status==='wait');
+  const used=new Set();
+  const matches=[],unmatched=[];
+  for(const r of waiting){
+    if(used.has(r.firebaseKey))continue;
+    const f=BMAP[r.fromId],t=BMAP[r.toId];
+    let best=null,bestScore=Infinity,bestType='none';
+    for(const c of waiting){
+      if(c.firebaseKey===r.firebaseKey||used.has(c.firebaseKey))continue;
+      const cf=BMAP[c.fromId],ct=BMAP[c.toId];
+      // Exact reverse
+      if(c.fromId===r.toId&&c.toId===r.fromId){best=c;bestScore=0;bestType='exact';break;}
+      // Geo: both endpoints within DETOUR_KM of A→B corridor
+      const dCF=ptSegDist(cf.lat,cf.lng,f.lat,f.lng,t.lat,t.lng);
+      const dCT=ptSegDist(ct.lat,ct.lng,f.lat,f.lng,t.lat,t.lng);
+      const dCFr=ptSegDist(ct.lat,ct.lng,t.lat,t.lng,f.lat,f.lng);
+      const dCTr=ptSegDist(cf.lat,cf.lng,t.lat,t.lng,f.lat,f.lng);
+      const onFwd=dCF<=DETOUR_KM&&dCT<=DETOUR_KM;
+      const onBwd=dCFr<=DETOUR_KM&&dCTr<=DETOUR_KM;
+      if(onFwd&&onBwd){const sc=dCF+dCT;if(sc<bestScore){bestScore=sc;best=c;bestType='nearby-full';}}
+      else if((onFwd||onBwd)&&bestType!=='nearby-full'){const sc=onFwd?dCF+dCT:dCFr+dCTr;if(sc<bestScore){bestScore=sc;best=c;bestType='nearby-partial';}}
+    }
+    if(best){used.add(r.firebaseKey);used.add(best.firebaseKey);matches.push({go:r,back:best,type:bestType,detourKm:bestScore<1?0:Math.round(bestScore)});}
+    else{used.add(r.firebaseKey);unmatched.push(r);}
+  }
+  return{matches,unmatched};
+}
+
+function renderMatches(){
+  const{matches,unmatched}=computeMatches();
+  const exact=matches.filter(m=>m.type==='exact').length;
+  const nb=matches.filter(m=>m.type.startsWith('nearby')).length;
+  let html=`<div class="sum-grid">
+    <div class="scrd"><div class="sn sng">${exact}</div><div class="sl">הצלבה מדויקת</div></div>
+    <div class="scrd"><div class="sn snp">${nb}</div><div class="sl">הצלבה גיאוגרפית</div></div>
+    <div class="scrd"><div class="sn snr">${unmatched.length}</div><div class="sl">ללא כיסוי</div></div>
+  </div>`;
+  if(matches.length===0&&unmatched.length===0){
+    html+=`<div class="empty"><div class="empty-ico">🔄</div><div class="empty-txt">אין בקשות ממתינות להצלבה</div></div>`;
+    document.getElementById('match-content').innerHTML=html;return;
+  }
+  if(matches.length){
+    html+=`<div class="sec-hdr">מסלולים מומלצים</div>`;
+    matches.forEach((m,i)=>{
+      const f=BMAP[m.go.fromId],t=BMAP[m.go.toId];
+      const bf=BMAP[m.back.fromId],bt=BMAP[m.back.toId];
+      const isExact=m.type==='exact';
+      const cardCls=isExact?'full':m.type==='nearby-full'?'nearby':'partial';
+      const badgeCls=isExact?'mbf':m.type==='nearby-full'?'mbn':'mbp';
+      const badgeTxt=isExact?'✓ הצלבה מדויקת':m.type==='nearby-full'?`📍 גיאוגרפית +${m.detourKm}ק"מ`:`📍 חלקית +${m.detourKm}ק"מ`;
+      html+=`<div class="mxcard ${cardCls}">
+        <div class="mxhead">
+          <div class="mxtitle">מסלול ${i+1}: ${f.name} ↔ ${t.name}</div>
+          <span class="mxbadge ${badgeCls}">${badgeTxt}</span>
+        </div>
+        <div class="mxleg">
+          <div class="mxico mig">→</div>
+          <div class="mxbody">
+            <div class="mxroute">${f.name} → ${t.name}</div>
+            <div><span class="mxplate">${m.go.plate}</span>${m.go.distKm?` <span style="font-size:10px;color:var(--ink4)">${m.go.distKm}ק"מ</span>`:''}</div>
+            <div class="mxmgr">${f.mgr} · <a class="mxph" href="tel:${f.ph}">${f.ph}</a></div>
+          </div>
+        </div>
+        <div class="mxleg">
+          <div class="mxico ${isExact?'mib':'min'}">←</div>
+          <div class="mxbody">
+            <div class="mxroute">${bf.name} → ${bt.name}</div>
+            <div><span class="mxplate">${m.back.plate}</span>${m.back.distKm?` <span style="font-size:10px;color:var(--ink4)">${m.back.distKm}ק"מ</span>`:''}</div>
+            <div class="mxmgr">${bf.mgr} · <a class="mxph" href="tel:${bf.ph}">${bf.ph}</a></div>
+            ${!isExact?`<div style="font-size:10px;color:var(--purple);background:var(--pl);border-radius:20px;padding:2px 8px;display:inline-flex;align-items:center;gap:3px;margin-top:3px">📍 סטייה: ${m.detourKm} ק"מ</div>`:''}
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+  if(unmatched.length){
+    html+=`<div class="sec-hdr" style="color:var(--red)">ללא הצלבה</div>`;
+    unmatched.forEach(r=>{
+      const f=BMAP[r.fromId],t=BMAP[r.toId];
+      html+=`<div class="um-card">
+        <div class="um-info">
+          <div class="um-br">${f?.name} → ${t?.name}</div>
+          <div class="um-sub">${f?.mgr} · <a class="ph" href="tel:${f?.ph}">${f?.ph}</a></div>
+        </div>
+        <span class="um-plate">${r.plate}</span>
+      </div>`;
+    });
+  }
+  html+=`<a class="wa-btn" href="https://wa.me/?text=${encodeURIComponent(buildWA(matches,unmatched))}" target="_blank">📤 שתף בוואטסאפ</a>`;
+  document.getElementById('match-content').innerHTML=html;
+}
+
+function buildWA(matches,unmatched){
+  const d=new Date().toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'long'});
+  let t=`🚗 *שינועים Freesbe — ${d}*\n\n`;
+  if(matches.length){t+=`✅ *הצלבות (${matches.length}):*\n`;matches.forEach((m,i)=>{const f=BMAP[m.go.fromId],to=BMAP[m.go.toId];const ex=m.type!=='exact'?` (+${m.detourKm}ק"מ)`:'';t+=`${i+1}. ${f?.name}↔${to?.name}${ex}\n   → ${m.go.plate}\n   ← ${m.back.plate}\n`;});}
+  if(unmatched.length){t+=`\n⚠️ *ללא הצלבה (${unmatched.length}):*\n`;unmatched.forEach(r=>{const f=BMAP[r.fromId],to=BMAP[r.toId];t+=`• ${f?.name}→${to?.name} | ${r.plate}\n`;});}
+  t+=`\n_מערכת שינועים Freesbe_`;
+  return t;
+}
+
+// ══════════════════════════════
+// BRANCH VIEW
+// ══════════════════════════════
+function renderBranchView(){
+  const selId=parseInt(document.getElementById('branch-sel').value);
+  const b=BMAP[selId];
+  if(!b)return;
+  const bReqs=reqs.filter(r=>r.fromId===selId||r.toId===selId);
+  const toOpts=BRANCHES.filter(x=>x.id!==selId).map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
+  let html=`<div class="add-form">
+    <div class="form-title">+ בקשת שינוע מ${b.name}</div>
+    <div class="fgrid">
+      <div class="ffull"><label class="flbl">מספר רישוי</label><input class="finp plate-inp" id="b-plate" type="text" placeholder="12-345-67" maxlength="10"></div>
+      <div class="ffull"><label class="flbl">סניף יעד</label><select class="fsel" id="b-to">${toOpts}</select></div>
+      <div class="ffull"><label class="flbl">הערה</label><input class="finp" id="b-note" type="text" placeholder="סיבת השינוע..."></div>
+    </div>
+    <button class="submit-btn" onclick="submitBranch(${selId})">הוסף בקשה</button>
+  </div>`;
+  if(bReqs.length){
+    html+=`<div class="sec-hdr">בקשות הסניף (${bReqs.length})</div>`;
+    html+=bReqs.map(r=>{
+      const f=BMAP[r.fromId]||{name:'?'},t=BMAP[r.toId]||{name:'?'};
+      const s=STATUS[r.status];
+      const isFrom=r.fromId===selId;
+      return `<div class="rcard">
+        <div class="rcard-head" onclick="toggleCard('br${r.firebaseKey}')">
+          <div class="plate">${r.plate}</div>
+          <div class="rmeta">
+            <div class="rroute">${isFrom?'→':'←'} ${isFrom?t.name:f.name}</div>
+            <div class="rmgr">${r.distKm||'?'} ק"מ</div>
+          </div>
+          <div class="rstatus ${s.cls}"><div class="sdot ${s.dc}"></div>${s.lbl}</div>
+          <div class="chev" id="ch-br${r.firebaseKey}">▼</div>
+        </div>
+        <div class="rcard-body" id="bd-br${r.firebaseKey}">
+          <div class="act-row">
+            <button class="abtn abw${r.status==='wait'?' cur':''}" onclick="setStatus('${r.firebaseKey}','wait')">⏳ ממתין</button>
+            <button class="abtn abg${r.status==='go'?' cur':''}" onclick="setStatus('${r.firebaseKey}','go')">🚗 בדרך</button>
+            <button class="abtn abd${r.status==='done'?' cur':''}" onclick="setStatus('${r.firebaseKey}','done')">✅ בוצע</button>
+          </div>
+          ${r.note?`<div style="margin-top:8px;font-size:12px;color:var(--ink3)">📝 ${r.note}</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    html+=`<div class="empty"><div class="empty-ico">📭</div><div class="empty-txt">אין בקשות לסניף זה</div></div>`;
+  }
+  document.getElementById('branch-content').innerHTML=html;
+}
+
+async function submitBranch(fromId){
+  const plate=document.getElementById('b-plate').value.trim().toUpperCase();
+  const toId=parseInt(document.getElementById('b-to').value);
+  const note=document.getElementById('b-note').value.trim();
+  if(!plate){showToast('נא להזין מספר רישוי');return;}
+  const f=BMAP[fromId],t=BMAP[toId];
+  const dist=Math.round(haversine(f.lat,f.lng,t.lat,t.lng));
+  await fbAdd({plate,fromId,toId,note,status:'wait',distKm:dist,createdAt:new Date().toISOString()});
+  document.getElementById('b-plate').value='';
+  document.getElementById('b-note').value='';
+  showToast(`✓ בקשה נוספה — ${dist} ק"מ`);
+}
+
+// ══════════════════════════════
+// NAV
+// ══════════════════════════════
+function showView(id,el){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+  if(id==='v-map')setTimeout(()=>mapObj.invalidateSize(),80);
+  if(id==='v-branch')renderBranchView();
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+init();
+</script>
+</body>
+</html>

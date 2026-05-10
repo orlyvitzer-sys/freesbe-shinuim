@@ -397,7 +397,7 @@ const BRANCHES=[
   {id:3, name:'כרמיאל',         mgr:'אבירן עבדו',     ph:'052-8865569',lat:32.914,lng:35.297},
   {id:4, name:'עפולה',          mgr:'רחמים כדורי',    ph:'050-3206206',lat:32.607,lng:35.289},
   {id:5, name:'סנטר חיפה',      mgr:'דני ברקובץ',     ph:'054-7275932',lat:32.794,lng:34.984},
-  {id:6, name:'צומת כח',        mgr:'אבינועם ממן',    ph:'050-7969001',lat:32.699,lng:35.183},
+  {id:6, name:'צומת כח',        mgr:'אבינועם ממן',    ph:'050-7969001',lat:33.207,lng:35.570},
   {id:7, name:'נהריה',          mgr:'אייל אבו',       ph:'052-3575436',lat:33.003,lng:35.098},
   {id:8, name:'חדרה',           mgr:'ישראל בן שושן',  ph:'052-8907492',lat:32.434,lng:34.919},
   {id:9, name:'גלילות',         mgr:'דוד מוטחדה',     ph:'054-2331444',lat:32.115,lng:34.854},
@@ -413,13 +413,14 @@ const BRANCHES=[
   {id:19,name:'חולון',          mgr:'אלעד נחמיה',     ph:'052-3040145',lat:32.011,lng:34.773},
   {id:20,name:'נתיבות',         mgr:'אופיר גל',       ph:'052-7756536',lat:31.421,lng:34.589},
   {id:21,name:'אופקים',         mgr:'שון וקנין',      ph:'052-7922310',lat:31.312,lng:34.626},
-  {id:22,name:'מרכז הרכב',      mgr:'שי טיאר',        ph:'054-4294916',lat:32.054,lng:34.760},
+  {id:22,name:'מרכז הרכב',      mgr:'שי טיאר',        ph:'054-4294916',lat:31.243,lng:34.800},
+  {id:31,name:'מרלו"ג כוכב יאיר',mgr:'',              ph:'',           lat:32.193,lng:35.008},
   {id:23,name:'קריית גת',       mgr:'דקל עזרא',       ph:'054-6741321',lat:31.610,lng:34.771},
   {id:24,name:'תל אביב',        mgr:'יוסי פרימו',     ph:'050-5885517',lat:32.065,lng:34.778},
   {id:25,name:'אשדוד',          mgr:'אריאל שוורצמן',  ph:'052-4842133',lat:31.804,lng:34.655},
   {id:26,name:'ירושלים האומן',  mgr:'יהודה רבי',      ph:'054-7004847',lat:31.791,lng:35.215},
   {id:27,name:'ירושלים הפרסה',  mgr:'רועי מילר',      ph:'052-6862835',lat:31.779,lng:35.228},
-  {id:28,name:'פלטין',          mgr:'יוני פרוזנפר',   ph:'054-7004720',lat:32.268,lng:35.013},
+  {id:28,name:'פלטין',          mgr:'יוני פרוזנפר',   ph:'054-7004720',lat:31.971,lng:34.789},
   {id:29,name:'ראשל"צ האצ"ל',  mgr:'רוני בראון',     ph:'050-5225251',lat:31.973,lng:34.800},
   {id:30,name:'אשקלון',         mgr:'ספאחי רז',       ph:'050-2327687',lat:31.669,lng:34.572},
 ];
@@ -532,6 +533,8 @@ function initMap(){
   mapObj=L.map('map',{center:[31.8,34.9],zoom:7,zoomControl:false,attributionControl:false,preferCanvas:true});
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(mapObj);
   L.control.zoom({position:'bottomleft'}).addTo(mapObj);
+
+
   BRANCHES.forEach(b=>{markers[b.id]=createMarker(b);});
   renderMapStats();
 }
